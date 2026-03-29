@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Trash Collector – Collisions + Click-to-Play + Conveyor NPC Spawn</title>
+  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+</head>
+
+<body style="margin:0;">
+  <a-scene background="color: #111">
+
+    <a-assets>
+      <a-asset-item id="world" src="Stairs_and_gears.glb"></a-asset-item>
+      <a-asset-item id="conveyorModel" src="Conveyor.glb"></a-asset-item>
+    </a-assets>
+
+    <!-- ========================================================= -->
+    <!-- PLAYER RIG -->
+    <!-- ========================================================= -->
+    <a-entity id="rig" position="0 1.6 8"
+      simple-fps-collide="speed: 5; radius: 0.35; eyeHeight: 1.6;">
+      <a-entity id="cam" camera look-controls position="0 0 0"></a-entity>
+    </a-entity>
+
+    <!-- ========================================================= -->
+    <!-- NPC TEMPLATE (HIDDEN) — EDIT THIS TO ADD LIMBS / PARTS -->
+    <!-- Everything inside here gets cloned for each spawned NPC -->
+    <!-- ========================================================= -->
+<a-entity id="npcTemplate" visible="false" scale="0.5 0.5 0.5">
+
+  <!-- BODY -->
+  <a-entity id="npcBody"
+    class="dropPart"
+    position="0 0 5"
+    geometry="primitive: sphere; radius: 1.5"
+    material="color: red"
+    scale="1 1.5 1"
+
+    animation__wobble="property: rotation;
+                       from: 0 0 -8;
+                       to: 0 0 8;
+                       dur: 600;
+                       dir: alternate;
+                       loop: true;
+                       easing: easeInOutSine"
+
+    animation__bob="property: position;
+                    from: 0 0 0;
+                    to: 0 0.12 0;
+                    dur: 500;
+                    dir: alternate;
+                    loop: true;
+                    easing: easeInOutSine">
+
+    <!-- BLUE JOINTS -->
+    <a-entity geometry="primitive: sphere; radius: 0.15"
+      class="dropPart"
+      material="color: blue"
+      position="0.75 1.2 0.3"
+      scale="1.5 1.5 1.5"></a-entity>
+
+    <a-entity geometry="primitive: sphere; radius: 0.15"
+      class="dropPart"
+      material="color: blue"
+      position="-0.75 1.2 0.38"
+      scale="1.5 1.5 1.5"></a-entity>
+
+    <!-- ORANGE LIMBS (your original static ones) -->
+    <a-entity geometry="primitive: cylinder"
+      class="dropPart"
+      material="color: orange"
+      position="1.4 1.8 0.3"
+      rotation="0 0 -45"
+      scale="0.2 1.5 0.2"></a-entity>
+
+    <a-entity geometry="primitive: cylinder"
+      class="dropPart"
+      material="color: orange"
+      position="-1.4 1.8 0.4"
+      rotation="0 0 45"
+      scale="0.2 1.5 0.2"></a-entity>
+
+    <!-- ========================= -->
+    <!-- FIXED LEFT ARM (mirrors right) -->
+    <!-- ========================= -->
+    <a-entity position="-2 2.2 0.3">
+      <a-entity geometry="primitive: sphere; radius: 0.17"
+        class="dropPart"
+        position="0 0.2 0.05"
+        scale="1.75 1.75 1.75"
+        material="color: blue"></a-entity>
+
+      <a-entity id="LeftArmPivot"
+        rotation="0 0 -30"
+        animation__swing="property: rotation;
+                          from: 40 0 0;
+                          to:   -40 0 15;
+                          dur:  600;
+                          dir:  alternate;
+                          loop: true;
+                          easing: easeInOutSine">
+
+        <a-entity geometry="primitive: cylinder; radius: 0.1; height: 1.5"
+          class="dropPart"
+          material="color: orange"
+          scale="2 1.25 2"
+          position="0 -0.75 0"></a-entity>
+      </a-entity>
+    </a-entity>
+
+    <!-- ========================= -->
+    <!-- FIXED RIGHT ARM (your working side) -->
+    <!-- ========================= -->
+    <a-entity position="2 2.2 0.3">
+      <a-entity geometry="primitive: sphere; radius: 0.17"
+        class="dropPart"
+        position="0 0.2 0.05"
+        scale="1.75 1.75 1.75"
+        material="color: blue"></a-entity>
+
+      <a-entity id="rightArmPivot"
+        rotation="0 0 30"
+        animation__swing="property: rotation;
+                          from: -40 0 15;
+                          to:   40 0 -15;
+                          dur:  600;
+                          dir:  alternate;
+                          loop: true;
+                          easing: easeInOutSine">
+
+        <a-entity geometry="primitive: cylinder; radius: 0.1; height: 1.5"
+          class="dropPart"
+          material="color: orange"
+          scale="2 1.25 2"
+          position="0 -0.75 0"></a-entity>
+      </a-entity>
+    </a-entity>
+
+    <!-- ========================================================= -->
+    <!-- FIXED RIGHT LEG (standalone limb root; NOT nested in left) -->
+    <!-- ========================================================= -->
+    <a-entity id="rightLegRoot" position="1 -1.1 0" rotation="0 0 45">
+
+      <!-- upper leg -->
+      <a-entity geometry="primitive: cylinder; radius: 0.1; height: 1.5"
+        class="dropPart"
+        material="color: orange"
+        scale="2 1 2"
+        position="0 -0.75 0"></a-entity>
+
+      <!-- knee joint (keep sphere un-squashed: do NOT non-uniform scale here) -->
+      <a-entity geometry="primitive: sphere; radius: 0.17"
+        class="dropPart"
+        material="color: blue"
+        position="0 -1.5 0"
+        rotate="0 90 0"
+        scale="2 2 2"
+animation__swing="property: rotation;
+                            from: 0 70 0;
+                            to:   0 -70 0;
+                            dur:  600;
+                            dir:  alternate;
+                            loop: true;
+                            easing: easeInOutSine">
+
+        
+
+        <!-- lower leg (child of knee) -->
+        <a-entity id="rightLowerLeg"
+          class="dropPart"
+          geometry="primitive: cylinder; radius: 0.1; height: 1.5"
+          material="color: orange"
+          scale="1.25 0.6 1.25"
+          rotation="0 0 90"
+          position="-0.4 0 0">
+          
+        </a-entity>
+      </a-entity>
+    </a-entity>
+
+    <!-- ========================================================= -->
+    <!-- FIXED LEFT LEG (separate limb root; mirrors right) -->
+    <!-- ========================================================= -->
+    <a-entity id="leftLegRoot" position="-1 -1.1 0" rotation="0 0 -45">
+
+      <!-- upper leg -->
+      <a-entity geometry="primitive: cylinder; radius: 0.1; height: 1.5"
+        class="dropPart"
+        material="color: orange"
+        scale="2 1 2"
+        position="0 -0.75 0"></a-entity>
+
+      <!-- knee joint -->
+      <a-entity geometry="primitive: sphere; radius: 0.17"
+        class="dropPart"
+        material="color: blue"
+        position="0 -1.5 0"
+        rotation="0 0 90"
+        scale="2 2 2"
+        animation__swing="property: rotation;
+                            from: 0 40 0;
+                            to:   0 -40 0;
+                            dur:  600;
+                            dir:  alternate;
+                            loop: true;
+                            easing: easeInOutSine">
+        <!-- lower leg -->
+        <a-entity id="leftLowerLeg"
+          class="dropPart"
+          geometry="primitive: cylinder; radius: 0.1; height: 1.5"
+          material="color: orange"
+          scale="1.25 0.6 1.25"
+          rotation="0 0 90"
+          position="0.5 0 0">          
+        </a-entity>
+      </a-entity>
+    </a-entity>
+  </a-entity> <!-- end npcBody -->
+</a-entity>   <!-- end npcTemplate -->
+    <!-- OPTIONAL: A VISIBLE “DESIGN PREVIEW” NPC (NOT USED FOR CLONING) -->
+    <!-- This is just so you can see the character in the scene while editing. -->
+    
+
+    <!-- ========================================================= -->
+    <!-- MACHINE (animated gears) -->
+    <!-- ========================================================= -->
+    <a-entity id="machine"
+      gltf-model="#world"
+      position="0 0.5 -3"
+      scale="10 10 10"
+      three-anim-player>
+    </a-entity>
+
+    <!-- ========================================================= -->
+    <!-- CONVEYOR MODEL -->
+    <!-- ========================================================= -->
+    <a-entity id="conveyor"
+      gltf-model="#conveyorModel"
+      position="0 0.5 -3"
+      scale="10 10 10">
+    </a-entity>
+
+    <!-- ========================================================= -->
+    <!-- WAYPOINTS (EDIT THESE) -->
+    <!-- ========================================================= -->
+
+<!-- NPC's -->
+    <a-entity id="wp0" position="52 8 -10"></a-entity>
+    <a-entity id="wp1" position="52 8 -27.5"></a-entity>
+    <a-entity id="wp2" position="0 8 -28"></a-entity>
+    <a-entity id="wp3" position="0 10.5 -2"></a-entity>
+    <a-entity id="wp4" position="0 2.5 -2"></a-entity>
+
+    <!-- Parts -->
+      <a-entity id="partSystem"
+          part-mover="speed: 2.2; arriveDist: 0.2; lastWp: 3; wpPrefix: wp">
+      </a-entity>
+
+<!-- Parts waypoints -->
+<a-entity id="wp00" position="0 -1 -2" ></a-entity>
+<a-entity id="wp01" position="17.5 -1 -2"></a-entity>
+<a-entity id="wp02" position="29 6.5 -2"></a-entity>
+<a-entity id="wp03" position="52 6.5 -2"></a-entity>
+
+    <!-- ========================================================= -->
+    <!-- FLOORS -->
+    <!-- ========================================================= -->
+    <a-plane class="floor"
+      position="-3.7 2 8" rotation="-55 0 0"
+      width="3" height="7"
+      material="color: yellow; opacity: 0.20; transparent: true; shader: flat"></a-plane>
+
+    <a-plane class="floor"
+      position="0 5.5 4" rotation="-60 -90 0"
+      width="3" height="5.5"
+      material="color: yellow; opacity: 0.20; transparent: true; shader: flat"></a-plane>
+
+    <a-plane class="floor"
+      position="-3 4 4" rotation="-90 0 0"
+      width="4" height="3.25"
+      material="color: yellow; opacity: 0.20; transparent: true; shader: flat"></a-plane>
+
+    <a-plane class="floor"
+      position="4.25 6.75 -2" rotation="-90 0 0"
+      width="4" height="15"
+      material="color: yellow; opacity: 0.20; transparent: true; shader: flat"></a-plane>
+
+    <!-- OPTIONAL SOLID -->
+    <a-box class="solid"
+      position="0 0 20"
+      width="6" height="2" depth="0.5"
+      material="color: red; opacity: 0.15; transparent: true; shader: flat"></a-box>
+
+    <!-- ========================================================= -->
+    <!-- BUTTON STAND + BUTTON -->
+    <!-- ========================================================= -->
+    <a-entity geometry="primitive: box; width: 1; height: 1; depth: 1" position="5 7.25 -6.5"></a-entity>
+    <a-entity geometry="primitive: box; width: 0.5; height: 1; depth: 0.5" position="5 8 -6.5"></a-entity>
+
+    <a-entity id="startButton" class="clickable"
+      geometry="primitive: sphere; radius: 0.25"
+      material="color: #22cc88"
+      position="5 8.15 -6.22">
+    </a-entity>
+
+    <a-entity cursor="rayOrigin: mouse"
+      raycaster="objects: .clickable">
+    </a-entity>
+
+    <!-- ========================================================= -->
+    <!-- TRASH SYSTEM -->
+    <!-- ========================================================= -->
+    <a-entity id="trashSystem"
+      trash-spawner="interval: 3; maxAlive: 15; spawnJitter: 0.35; spawnYOffset: 0"
+      trash-mover="speed: 2.2; arriveDist: 0.20; lastWp: 4"
+      trash-crusher="crusherSelector: #crusher; killDelayMs: 50">
+    </a-entity>
+
+    <!-- CRUSH ZONE -->
+    <a-box id="crusher"
+      position="0 2 -2"
+      width="0.5" height="0.5" depth="1.5"
+      material="color: #ff0000; opacity: 0.20; transparent: true; shader: flat">
+    </a-box>
+
+    <!-- object spawn zone -->
+    <a-box id="SpawnObjects"
+      position="0 1 -2"
+      width="0.5" height="0.5" depth="1.5"
+      material="color: #ff0000; opacity: 0.20; transparent: true; shader: flat">
+    </a-box>
+
+    <!-- Lights -->
+    <a-entity light="type: ambient; intensity: 0.8"></a-entity>
+    <a-entity light="type: directional; intensity: 0.9" position="1 6 3"></a-entity>
+    <a-sky color="#111"></a-sky>
+
+  </a-scene>
+
+  <script>
+    // ============================================================
+    // 0) SHOW A PREVIEW OF THE TEMPLATE IN THE SCENE (OPTIONAL)
+    // ============================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      const template = document.querySelector('#npcTemplate');
+      const previewHost = document.querySelector('#npcPreview');
+      if (template && previewHost) {
+        const preview = template.cloneNode(true);
+        preview.removeAttribute('id');
+        preview.setAttribute('visible', 'true');
+        previewHost.appendChild(preview);
+      }
+    });
+
+    // ============================================================
+    // 1) MACHINE: play/pause all GLB clips
+    // ============================================================
+    AFRAME.registerComponent('three-anim-player', {
+      init: function () {
+        this.mixer = null;
+        this.actions = [];
+        this.playing = false;
+
+        this.el.addEventListener('model-loaded', () => {
+          const root = this.el.getObject3D('mesh');
+          const clips = root?.animations || [];
+          if (!clips.length) {
+            console.warn('No animations found in GLB.');
+            return;
+          }
+
+          console.log('Machine clips:', clips.map(c => c.name));
+          this.mixer = new THREE.AnimationMixer(root);
+
+          this.actions = clips.map(clip => {
+            const a = this.mixer.clipAction(clip);
+            a.setLoop(THREE.LoopRepeat);
+            a.play();
+            return a;
+          });
+
+          this.playing = false; // paused until button
+        });
+      },
+
+      tick: function (t, dt) {
+        if (!this.mixer || !this.playing) return;
+        this.mixer.update(dt / 1000);
+      },
+
+      toggle: function () {
+        this.playing = !this.playing;
+        return this.playing;
+      }
+    });
+
+    // Button toggles machine
+    window.addEventListener('DOMContentLoaded', () => {
+      const machineEl = document.querySelector('#machine');
+      const btn = document.querySelector('#startButton');
+
+      btn.addEventListener('click', () => {
+        const comp = machineEl.components['three-anim-player'];
+        if (!comp || !comp.mixer) {
+          console.warn('Machine animation not ready yet.');
+          return;
+        }
+        const nowPlaying = comp.toggle();
+        btn.setAttribute('material', 'color', nowPlaying ? '#ffcc00' : '#22cc88');
+      });
+    });
+
+    // ============================================================
+    // 2) MOVEMENT + COLLISION
+    // ============================================================
+    AFRAME.registerComponent('simple-fps-collide', {
+      schema: {
+        speed: { type: 'number', default: 3.5 },
+        radius: { type: 'number', default: 0.35 },
+        eyeHeight: { type: 'number', default: 1.6 }
+      },
+
+      init: function () {
+        this.keys = {};
+        this.downRay = new THREE.Raycaster();
+        this.floorObjs = [];
+        this.solidEls = [];
+
+        document.addEventListener('keydown', (e) => this.keys[e.code] = true);
+        document.addEventListener('keyup',   (e) => this.keys[e.code] = false);
+
+        this.scene = this.el.sceneEl;
+        this.scene.addEventListener('loaded', () => this.rebuildLists());
+        this.scene.addEventListener('model-loaded', () => this.rebuildLists());
+      },
+
+      rebuildLists: function () {
+        const floorEls = Array.from(this.scene.querySelectorAll('.floor'));
+        this.floorObjs = floorEls.map(e => e.getObject3D('mesh')).filter(Boolean);
+        this.solidEls = Array.from(this.scene.querySelectorAll('.solid'));
+      },
+
+      tick: function (t, dt) {
+        dt = Math.min(dt / 1000, 0.05);
+
+        const rig = this.el.object3D;
+        const camEl = this.el.querySelector('[camera]');
+        const yaw = camEl ? camEl.object3D.rotation.y : rig.rotation.y;
+
+        let f = 0, s = 0;
+        if (this.keys['KeyW'] || this.keys['ArrowUp']) f -= 1;
+        if (this.keys['KeyS'] || this.keys['ArrowDown']) f += 1;
+        if (this.keys['KeyA'] || this.keys['ArrowLeft']) s -= 1;
+        if (this.keys['KeyD'] || this.keys['ArrowRight']) s += 1;
+
+        const len = Math.hypot(f, s);
+        if (len > 0) { f /= len; s /= len; }
+
+        const speed = this.data.speed;
+        const sin = Math.sin(yaw), cos = Math.cos(yaw);
+
+        const dx = (s * cos + f * sin) * speed * dt;
+        const dz = (f * cos - s * sin) * speed * dt;
+
+        const oldX = rig.position.x;
+        const oldZ = rig.position.z;
+
+        rig.position.x += dx;
+        rig.position.z += dz;
+
+        if (this.collidesXZ(rig.position.x, rig.position.z, this.data.radius)) {
+          rig.position.x = oldX;
+          rig.position.z = oldZ;
+        }
+
+        this.snapToFloor();
+      },
+
+      collidesXZ: function (px, pz, r) {
+        for (const el of this.solidEls) {
+          const mesh = el.getObject3D('mesh');
+          if (!mesh) continue;
+
+          const box = new THREE.Box3().setFromObject(mesh);
+          const cx = Math.max(box.min.x, Math.min(px, box.max.x));
+          const cz = Math.max(box.min.z, Math.min(pz, box.max.z));
+
+          const dx = px - cx;
+          const dz = pz - cz;
+
+          if ((dx * dx + dz * dz) < (r * r)) return true;
+        }
+        return false;
+      },
+
+      snapToFloor: function () {
+        if (!this.floorObjs.length) return;
+
+        const rig = this.el.object3D;
+        const origin = new THREE.Vector3(rig.position.x, rig.position.y + 5, rig.position.z);
+        const dir = new THREE.Vector3(0, -1, 0);
+
+        this.downRay.set(origin, dir);
+        this.downRay.far = 20;
+
+        const hits = this.downRay.intersectObjects(this.floorObjs, true);
+        if (!hits.length) return;
+
+        const desiredY = hits[0].point.y + this.data.eyeHeight;
+        rig.position.y += (desiredY - rig.position.y) * 0.35;
+      }
+    });
+
+    // ============================================================
+    // 3) SPAWN NPC CLONES at wp0
+    // ============================================================
+    AFRAME.registerComponent('trash-spawner', {
+  schema: {
+    interval:    { type: 'number', default: 3 },
+    maxAlive:    { type: 'int',    default: 15 },
+    spawnJitter: { type: 'number', default: 0.35 },
+    spawnYOffset:{ type: 'number', default: 0 }
+  },
+
+  init: function () {
+    this.t = 0;
+    this.scene = this.el.sceneEl;
+    this.spawnEl = document.querySelector('#wp0');
+    this.template = document.querySelector('#npcTemplate');
+  },
+
+  tick: function (t, dt) {
+    if (!this.spawnEl || !this.template) return;
+
+    const alive = this.scene.querySelectorAll('.trash').length;
+    if (alive >= this.data.maxAlive) return;
+
+    this.t += dt / 1000;
+    if (this.t < this.data.interval) return;
+    this.t = 0;
+
+    const sp = this.spawnEl.object3D.position;
+    const j = this.data.spawnJitter;
+
+    const x = sp.x + (Math.random() * 2 - 1) * j;
+    const y = sp.y + this.data.spawnYOffset;
+    const z = sp.z + (Math.random() * 2 - 1) * j;
+
+    // Wrapper
+    const npc = document.createElement('a-entity');
+    npc.classList.add('trash');
+    npc.setAttribute('position', `${x} ${y} ${z}`);
+
+    // Hide until everything is initialized (prevents “flash”)
+    npc.setAttribute('visible', 'false');
+
+    // Clone template
+    const body = this.template.cloneNode(true);
+    body.removeAttribute('id');
+    body.setAttribute('visible', 'true');
+    npc.appendChild(body);
+
+    // Waypoint state
+    npc.dataset.wp = "1";
+    npc.dataset.spin = "0";
+
+    this.scene.appendChild(npc);
+
+    // Show on next frame (after A-Frame builds meshes/components)
+    requestAnimationFrame(() => {
+      if (npc.parentNode) npc.setAttribute('visible', 'true');
+    });
+  }
+});
+
+    // ============================================================
+    // 4) MOVE spawned NPCs along wp1..wp4
+    // ============================================================
+    AFRAME.registerComponent('trash-mover', {
+      schema: {
+        speed: { type: 'number', default: 2.2 },
+        arriveDist: { type: 'number', default: 0.18 },
+        lastWp: { type: 'int', default: 4 }
+      },
+
+      init: function () {
+        this.scene = this.el.sceneEl;
+        this.tmp = new THREE.Vector3();
+        this.target = new THREE.Vector3();
+      },
+
+      getWpPos: function (i) {
+        const el = document.querySelector('#wp' + i);
+        return el ? el.object3D.position : null;
+      },
+
+      tick: function (t, dt) {
+        const secs = Math.min(dt / 1000, 0.05);
+        const npcs = this.scene.querySelectorAll('.trash');
+        if (!npcs.length) return;
+
+        for (const npc of npcs) {
+          const obj = npc.object3D;
+          if (!obj) continue;
+
+          let wp = parseInt(npc.dataset.wp || "1", 10);
+          if (wp > this.data.lastWp) wp = this.data.lastWp;
+
+          const wpPos = this.getWpPos(wp);
+          if (!wpPos) continue;
+
+          this.target.copy(wpPos);
+          this.tmp.copy(this.target).sub(obj.position);
+          const dist = this.tmp.length();
+
+          if (dist <= this.data.arriveDist) {
+            npc.dataset.wp = String(wp + 1);
+            continue;
+          }
+
+          this.tmp.normalize();
+          obj.position.addScaledVector(this.tmp, this.data.speed * secs);
+
+          // Face direction of travel
+          const angle = Math.atan2(this.tmp.x, this.tmp.z);
+          obj.rotation.y = angle;
+        }
+      }
+    });
+
+    // ============================================================
+    // 5) CRUSHER: delete NPCs when they enter crusher box
+    // ============================================================
+    AFRAME.registerComponent('trash-crusher', {
+  schema: {
+    crusherSelector: { type: 'string', default: '#crusher' },
+    spawnSelector:   { type: 'string', default: '#SpawnObjects' },
+    killDelayMs:     { type: 'int', default: 0 },
+    spawnJitter:     { type: 'number', default: 0.35 },
+    clearOld:        { type: 'boolean', default: true } // keep only latest set
+  },
+
+  init: function () {
+    this.scene = this.el.sceneEl;
+    this.crusherEl = document.querySelector(this.data.crusherSelector);
+    this.spawnEl   = document.querySelector(this.data.spawnSelector);
+
+    this.crusherBox = new THREE.Box3();
+    this.tmpBox = new THREE.Box3();
+
+    this._spawnWorld = new THREE.Vector3();
+    this._q = new THREE.Quaternion();
+    this._s = new THREE.Vector3();
+    this._e = new THREE.Euler();
+  },
+
+
+  spawnPartsFromNpc: function (npcEl) {
+    if (!this.spawnEl) return;
+
+    // World position of spawn box
+    this.spawnEl.object3D.getWorldPosition(this._spawnWorld);
+
+    // IMPORTANT: npcEl is the wrapper ".trash" which contains the cloned template
+    const parts = npcEl.querySelectorAll('.dropPart');
+    if (!parts.length) {
+      console.warn('No .dropPart found inside crushed NPC');
+      return;
+    }
+
+    const j = this.data.spawnJitter;
+
+    parts.forEach((part) => {
+      // world rotation + scale of original part (so clones look same)
+      part.object3D.getWorldQuaternion(this._q);
+      part.object3D.getWorldScale(this._s);
+      this._e.setFromQuaternion(this._q, 'YXZ');
+
+      // create a clean standalone entity
+      const clone = document.createElement('a-entity');
+      clone.classList.add('part');
+      clone.dataset.wp = "0"; // start at wp00
+
+      // copy only geometry/material (don’t clone animations/children/ids)
+      const g = part.getAttribute('geometry');
+      const m = part.getAttribute('material');
+      if (g) clone.setAttribute('geometry', g);
+      if (m) clone.setAttribute('material', m);
+
+      // spawn near spawn box, with jitter so you can see them
+      const x = this._spawnWorld.x + (Math.random() * 2 - 1) * j;
+      const y = this._spawnWorld.y + (Math.random() * 2 - 1) * j * 0.35;
+      const z = this._spawnWorld.z + (Math.random() * 2 - 1) * j;
+
+      clone.setAttribute('position', `${x} ${y} ${z}`);
+
+      // keep same orientation/scale as original part
+      clone.setAttribute('rotation', `${THREE.MathUtils.radToDeg(this._e.x)} ${THREE.MathUtils.radToDeg(this._e.y)} ${THREE.MathUtils.radToDeg(this._e.z)}`);
+      clone.setAttribute('scale', `${this._s.x} ${this._s.y} ${this._s.z}`);
+
+      this.scene.appendChild(clone);
+    });
+  },
+
+  tick: function () {
+    if (!this.crusherEl) return;
+
+    const crusherMesh = this.crusherEl.getObject3D('mesh');
+    if (!crusherMesh) return;
+
+    this.crusherBox.setFromObject(crusherMesh);
+
+    const npcs = this.scene.querySelectorAll('.trash');
+    for (const npc of npcs) {
+      this.tmpBox.setFromObject(npc.object3D);
+
+      if (this.crusherBox.intersectsBox(this.tmpBox)) {
+
+        // optional: keep only the most recent crushed set
+        if (this.data.clearOld) this.clearOldParts();
+
+        // spawn parts for THIS npc
+        this.spawnPartsFromNpc(npc);
+
+        // remove npc
+        if (this.data.killDelayMs > 0) {
+          setTimeout(() => npc.parentNode && npc.parentNode.removeChild(npc), this.data.killDelayMs);
+        } else {
+          npc.parentNode && npc.parentNode.removeChild(npc);
+        }
+      }
+    }
+  }
+});
+
+AFRAME.registerComponent('part-mover', {
+  schema: {
+    speed: { type: 'number', default: 2.2 },
+    arriveDist: { type: 'number', default: 0.18 },
+    lastWp: { type: 'int', default: 2 },        // wp00..wp02
+    wpPrefix: { type: 'string', default: 'wp0' } // makes wp00, wp01, wp02
+  },
+
+  init: function () {
+    this.scene = this.el.sceneEl;
+    this.tmp = new THREE.Vector3();
+    this.target = new THREE.Vector3();
+  },
+
+  getWpPos: function (i) {
+    // i=0 => wp00, i=1 => wp01 ...
+    const id = `#${this.data.wpPrefix}${String(i).padStart(2,'0')}`;
+    const el = document.querySelector(id);
+    return el ? el.object3D.position : null;
+  },
+
+  tick: function (t, dt) {
+    const secs = Math.min(dt / 1000, 0.05);
+    const parts = this.scene.querySelectorAll('.part');
+    if (!parts.length) return;
+
+    for (const part of parts) {
+      const obj = part.object3D;
+      if (!obj) continue;
+
+      let wp = parseInt(part.dataset.wp || "0", 10);
+      if (wp > this.data.lastWp) wp = this.data.lastWp;
+
+      const wpPos = this.getWpPos(wp);
+      if (!wpPos) continue;
+
+      this.target.copy(wpPos);
+      this.tmp.copy(this.target).sub(obj.position);
+      const dist = this.tmp.length();
+
+      if (dist <= this.data.arriveDist) {
+        part.dataset.wp = String(wp + 1);
+        continue;
+      }
+
+      this.tmp.normalize();
+      obj.position.addScaledVector(this.tmp, this.data.speed * secs);
+
+      // optional: face direction
+      const angle = Math.atan2(this.tmp.x, this.tmp.z);
+      obj.rotation.y = angle;
+    }
+  }
+});
+
+  </script>
+</body>
+</html>
